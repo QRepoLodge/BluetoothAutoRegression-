@@ -1,0 +1,43 @@
+name: BLE Auto CI
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 每晚 02:00 UTC
+  workflow_dispatch:      # 手动触发按钮
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bluetooth bluez libbluetooth-dev
+          pip install -r requirements.txt
+
+      - name: run tests
+        run: |
+          # Ubuntu 容器无 BLE 硬件，用“模拟模式”跑 10 条用例
+          pytest -v --alluredir=results
+
+      - name: generate Allure report
+        uses: simple-elf/allure-report-action@master
+        if: always()
+        with:
+          allure_results: results
+          allure_history: allure-history
+
+      - name: deploy report to github-pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: always()
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-history
